@@ -1,0 +1,20 @@
+{
+  "name": "com.grovegames.statemachine",
+  "version": "0.0.0",
+  "displayName": "GroveGames.StateMachine",
+  "description": "Finite state machine with shared states, guarded transitions and per-agent context for .NET and Unity",
+  "unity": "6000.3",
+  "documentationUrl": "https://github.com/grovegs/StateMachine",
+  "changelogUrl": "https://github.com/grovegs/StateMachine/releases",
+  "licensesUrl": "https://github.com/grovegs/StateMachine/blob/main/LICENSE",
+  "keywords": [
+    "state-machine",
+    "fsm",
+    "states",
+    "transitions"
+  ],
+  "author": {
+    "name": "Grove Games",
+    "url": "https://github.com/grovegs"
+  }
+}
