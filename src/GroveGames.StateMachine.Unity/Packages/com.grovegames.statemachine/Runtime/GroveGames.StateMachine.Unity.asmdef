@@ -1,0 +1,16 @@
+{
+    "name": "GroveGames.StateMachine.Unity",
+    "rootNamespace": "GroveGames.StateMachine.Unity",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "GroveGames.StateMachine.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
