@@ -6,17 +6,17 @@ public sealed class StateMachineTests
 {
     private readonly TestContext _context;
     private readonly StateMachine<TestContext> _machine;
-    private readonly TestState _idle;
-    private readonly TestState _walking;
-    private readonly TestState _running;
+    private readonly FakeState _idle;
+    private readonly FakeState _walking;
+    private readonly FakeState _running;
 
     public StateMachineTests()
     {
         _context = new TestContext();
         _machine = new StateMachine<TestContext>(_context);
-        _idle = new TestState("Idle");
-        _walking = new TestState("Walking");
-        _running = new TestState("Running");
+        _idle = new FakeState("Idle");
+        _walking = new FakeState("Walking");
+        _running = new FakeState("Running");
     }
 
     [Fact]
@@ -169,11 +169,11 @@ public sealed class StateMachineTests
         }
     }
 
-    private sealed class TestState : IState<TestContext>
+    private sealed class FakeState : IState<TestContext>
     {
         private readonly string _name;
 
-        public TestState(string name)
+        public FakeState(string name)
         {
             _name = name;
         }
