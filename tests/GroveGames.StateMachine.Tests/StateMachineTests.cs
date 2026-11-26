@@ -221,6 +221,52 @@ public sealed class StateMachineTests
         Assert.Throws<ArgumentNullException>(() => _machine.AddAnyTransition(_walking, null!));
     }
 
+    [Fact]
+    public void Stop_StateChangesInExit_ExitsOnceThenEntersTheNewState()
+    {
+        var leaving = new FakeCallbackState("Leaving", static context => { }, context => _machine.ChangeState(_running));
+        _machine.Start(leaving);
+        _context.Calls.Clear();
+
+        _machine.Stop();
+
+        Assert.Equal(new[] { "Leaving.Exit", "Running.Enter" }, _context.Calls);
+        Assert.Same(_running, _machine.Current);
+    }
+
+    [Fact]
+    public void ChangeState_StopThenChangeStateInHandler_LaterCallWins()
+    {
+        var handled = false;
+        _machine.StateChanged += change =>
+        {
+            if (handled)
+            {
+                return;
+            }
+
+            handled = true;
+            _machine.Stop();
+            _machine.ChangeState(_walking);
+        };
+
+        _machine.Start(_idle);
+
+        Assert.Same(_walking, _machine.Current);
+    }
+
+    [Fact]
+    public void ChangeState_AfterEnterThrows_StillChanges()
+    {
+        var failing = new FakeCallbackState("Failing", static context => throw new InvalidOperationException("Enter failed"));
+        _machine.Start(_idle);
+        Assert.Throws<InvalidOperationException>(() => _machine.ChangeState(failing));
+
+        _machine.ChangeState(_walking);
+
+        Assert.Same(_walking, _machine.Current);
+    }
+
     private static string? Name(IState<FakeContext>? state)
     {
         return state switch
@@ -282,13 +328,20 @@ public sealed class StateMachineTests
     {
         private readonly string _name;
         private readonly Action<FakeContext> _onEnter;
+        private readonly Action<FakeContext> _onExit;
 
         public string Name => _name;
 
         public FakeCallbackState(string name, Action<FakeContext> onEnter)
+            : this(name, onEnter, static context => { })
+        {
+        }
+
+        public FakeCallbackState(string name, Action<FakeContext> onEnter, Action<FakeContext> onExit)
         {
             _name = name;
             _onEnter = onEnter;
+            _onExit = onExit;
         }
 
         public void Enter(FakeContext context)
@@ -306,6 +359,7 @@ public sealed class StateMachineTests
         public void Exit(FakeContext context)
         {
             context.Calls.Add($"{_name}.Exit");
+            _onExit(context);
         }
     }
 }

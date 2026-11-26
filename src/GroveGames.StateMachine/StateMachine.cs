@@ -74,10 +74,20 @@ public sealed class StateMachine<TContext> : IStateMachine<TContext>
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        Request(state, false);
+    }
+
+    public void Stop()
+    {
+        Request(null, true);
+    }
+
+    private void Request(IState<TContext>? state, bool isStop)
+    {
         if (_isChanging)
         {
             _pending = state;
-            _isStopPending = false;
+            _isStopPending = isStop;
             return;
         }
 
@@ -85,37 +95,36 @@ public sealed class StateMachine<TContext> : IStateMachine<TContext>
 
         try
         {
-            var next = state;
-
             for (var i = 0; ; i++)
             {
-                if (i == MaxChainedChanges)
+                if (i > MaxChainedChanges)
                 {
                     throw new InvalidOperationException($"States changed more than {MaxChainedChanges} times in a row from Enter, Exit or StateChanged.");
                 }
 
-                var previous = _current;
-                previous?.Exit(Context);
-                _current = next;
-                next.Enter(Context);
-                StateChanged?.Invoke(new StateChangedEvent<TContext>(previous, next));
-
-                if (_isStopPending)
+                if (isStop)
                 {
-                    _isStopPending = false;
-                    _pending = null;
-                    _current.Exit(Context);
+                    _current?.Exit(Context);
                     _current = null;
-                    return;
+                }
+                else
+                {
+                    var previous = _current;
+                    previous?.Exit(Context);
+                    _current = state;
+                    state!.Enter(Context);
+                    StateChanged?.Invoke(new StateChangedEvent<TContext>(previous, state));
                 }
 
-                if (_pending == null)
+                if (_pending == null && !_isStopPending)
                 {
                     return;
                 }
 
-                next = _pending;
+                state = _pending;
+                isStop = _isStopPending;
                 _pending = null;
+                _isStopPending = false;
             }
         }
         finally
@@ -124,19 +133,6 @@ public sealed class StateMachine<TContext> : IStateMachine<TContext>
             _pending = null;
             _isStopPending = false;
         }
-    }
-
-    public void Stop()
-    {
-        if (_isChanging)
-        {
-            _pending = null;
-            _isStopPending = true;
-            return;
-        }
-
-        _current?.Exit(Context);
-        _current = null;
     }
 
     private bool TryFindTransition(out IState<TContext> next)
