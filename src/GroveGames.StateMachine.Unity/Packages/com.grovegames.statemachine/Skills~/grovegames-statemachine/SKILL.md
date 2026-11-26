@@ -13,6 +13,7 @@ Rules for game code that uses this package. They hold in every game. The API is 
 - Conditions only read the context. They run on every tick, so they change nothing and stay cheap.
 - Order matters: any-state transitions are checked before the transitions of the current state, each in the order they were added. Add the most urgent one first.
 - Let conditions drive the flow. Call `ChangeState` only for a change no condition can express, such as a forced reset.
+- A `ChangeState` or `Stop` called from `Enter`, `Exit` or a `StateChanged` handler runs after the change in progress, so do not read `Current` right after it in the same callback. Never call `Tick` from a state or a handler.
 - Something owns the tick. Call `Tick(deltaTime)` once per frame from the service or controller that owns the agents; a machine does not tick itself.
 - React to changes through `StateChanged`, and unsubscribe when the owner is disposed.
 
