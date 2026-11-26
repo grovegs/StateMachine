@@ -4,16 +4,16 @@ namespace GroveGames.StateMachine.Tests;
 
 public sealed class StateMachineTests
 {
-    private readonly TestContext _context;
-    private readonly StateMachine<TestContext> _machine;
+    private readonly FakeContext _context;
+    private readonly StateMachine<FakeContext> _machine;
     private readonly FakeState _idle;
     private readonly FakeState _walking;
     private readonly FakeState _running;
 
     public StateMachineTests()
     {
-        _context = new TestContext();
-        _machine = new StateMachine<TestContext>(_context);
+        _context = new FakeContext();
+        _machine = new StateMachine<FakeContext>(_context);
         _idle = new FakeState("Idle");
         _walking = new FakeState("Walking");
         _running = new FakeState("Running");
@@ -120,7 +120,7 @@ public sealed class StateMachineTests
     [Fact]
     public void ChangeState_RaisesStateChangedWithPreviousAndCurrent()
     {
-        var changes = new List<StateChangedEvent<TestContext>>();
+        var changes = new List<StateChangedEvent<FakeContext>>();
         _machine.StateChanged += changes.Add;
         _machine.Start(_idle);
 
@@ -155,10 +155,92 @@ public sealed class StateMachineTests
         Assert.Empty(_context.Calls);
     }
 
-    private sealed class TestContext
+    [Fact]
+    public void ChangeState_StateChangesAgainInEnter_RaisesEventsInOrder()
     {
-        private readonly List<string> _calls = new();
+        var events = new List<string>();
+        var redirect = new FakeCallbackState("Redirect", context => _machine.ChangeState(_running));
+        _machine.StateChanged += change => events.Add($"{Name(change.Previous)}->{Name(change.Current)}");
+        _machine.Start(_idle);
+
+        _machine.ChangeState(redirect);
+
+        Assert.Equal(new[] { "->Idle", "Idle->Redirect", "Redirect->Running" }, events);
+        Assert.Same(_running, _machine.Current);
+    }
+
+    [Fact]
+    public void ChangeState_StateChangesAgainInEnter_FinishesEnterBeforeExit()
+    {
+        var redirect = new FakeCallbackState("Redirect", context => _machine.ChangeState(_running));
+        _machine.Start(_idle);
+        _context.Calls.Clear();
+
+        _machine.ChangeState(redirect);
+
+        Assert.Equal(new[] { "Idle.Exit", "Redirect.Enter", "Redirect.Entered", "Redirect.Exit", "Running.Enter" }, _context.Calls);
+    }
+
+    [Fact]
+    public void Tick_StateStopsInEnter_StaysStopped()
+    {
+        var stopping = new FakeCallbackState("Stopping", context => _machine.Stop());
+        _machine.AddTransition(_idle, stopping, context => true);
+        _machine.AddAnyTransition(_running, context => !_machine.IsRunning || _machine.Current == stopping);
+        _machine.Start(_idle);
+
+        _machine.Tick(0.1f);
+
+        Assert.False(_machine.IsRunning);
+        Assert.DoesNotContain("Running.Enter", _context.Calls);
+    }
+
+    [Fact]
+    public void ChangeState_StatesThatKeepSwitching_ThrowsInvalidOperationException()
+    {
+        FakeCallbackState? second = null;
+        var first = new FakeCallbackState("First", context => _machine.ChangeState(second!));
+        second = new FakeCallbackState("Second", context => _machine.ChangeState(first));
+
+        Assert.Throws<InvalidOperationException>(() => _machine.Start(first));
+    }
+
+    [Fact]
+    public void ChangeState_Null_ThrowsArgumentNullException()
+    {
+        _machine.Start(_idle);
+
+        Assert.Throws<ArgumentNullException>(() => _machine.ChangeState(null!));
+        Assert.Same(_idle, _machine.Current);
+    }
+
+    [Fact]
+    public void AddTransition_NullCondition_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => _machine.AddTransition(_idle, _walking, null!));
+        Assert.Throws<ArgumentNullException>(() => _machine.AddAnyTransition(_walking, null!));
+    }
+
+    private static string? Name(IState<FakeContext>? state)
+    {
+        return state switch
+        {
+            FakeState fake => fake.Name,
+            FakeCallbackState callback => callback.Name,
+            _ => null
+        };
+    }
+
+    private sealed class FakeContext
+    {
+        private readonly List<string> _calls;
         private int _value;
+
+        public FakeContext()
+        {
+            _calls = new List<string>();
+            _value = 0;
+        }
 
         public List<string> Calls => _calls;
         public int Value => _value;
@@ -169,26 +251,59 @@ public sealed class StateMachineTests
         }
     }
 
-    private sealed class FakeState : IState<TestContext>
+    private sealed class FakeState : IState<FakeContext>
     {
         private readonly string _name;
+
+        public string Name => _name;
 
         public FakeState(string name)
         {
             _name = name;
         }
 
-        public void Enter(TestContext context)
+        public void Enter(FakeContext context)
         {
             context.Calls.Add($"{_name}.Enter");
         }
 
-        public void Tick(TestContext context, float deltaTime)
+        public void Tick(FakeContext context, float deltaTime)
         {
             context.Calls.Add($"{_name}.Tick");
         }
 
-        public void Exit(TestContext context)
+        public void Exit(FakeContext context)
+        {
+            context.Calls.Add($"{_name}.Exit");
+        }
+    }
+
+    private sealed class FakeCallbackState : IState<FakeContext>
+    {
+        private readonly string _name;
+        private readonly Action<FakeContext> _onEnter;
+
+        public string Name => _name;
+
+        public FakeCallbackState(string name, Action<FakeContext> onEnter)
+        {
+            _name = name;
+            _onEnter = onEnter;
+        }
+
+        public void Enter(FakeContext context)
+        {
+            context.Calls.Add($"{_name}.Enter");
+            _onEnter(context);
+            context.Calls.Add($"{_name}.Entered");
+        }
+
+        public void Tick(FakeContext context, float deltaTime)
+        {
+            context.Calls.Add($"{_name}.Tick");
+        }
+
+        public void Exit(FakeContext context)
         {
             context.Calls.Add($"{_name}.Exit");
         }
