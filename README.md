@@ -40,7 +40,7 @@ machine.Tick(deltaTime);
 machine.Stop();
 ```
 
-`Tick` checks the any-state transitions first, then the transitions of the current state, in the order they were added. It follows at most eight transitions in one tick, then ticks the current state. `ChangeState` switches without a condition, and `Stop` exits the current state.
+`Tick` checks the any-state transitions first, then the transitions of the current state, in the order they were added. It follows at most eight transitions in one tick, then ticks the current state. `ChangeState` switches without a condition, and `Stop` exits the current state. A `ChangeState` or `Stop` called from `Enter`, `Exit` or a `StateChanged` handler waits until the change or stop in progress has finished, and the last such call wins, so `StateChanged` always reports changes in order. A `Stop` requested while a state is being entered lets that state finish entering and then exits it. More than 64 such changes in a row throw `InvalidOperationException`. Do not call `Tick` from a state or a handler.
 
 ## Unity
 
