@@ -74,57 +74,57 @@ public sealed class StateMachine<TContext> : IStateMachine<TContext>
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        Request(state, false);
+        QueueChange(state, false);
     }
 
     public void Stop()
     {
-        Request(null, true);
+        QueueChange(null, true);
     }
 
-    private void Request(IState<TContext>? state, bool isStop)
+    private void QueueChange(IState<TContext>? state, bool isStop)
     {
+        _pending = state;
+        _isStopPending = isStop;
+
         if (_isChanging)
         {
-            _pending = state;
-            _isStopPending = isStop;
             return;
         }
 
+        ApplyQueuedChanges();
+    }
+
+    private void ApplyQueuedChanges()
+    {
         _isChanging = true;
 
         try
         {
-            for (var i = 0; ; i++)
+            for (var i = 0; _pending != null || _isStopPending; i++)
             {
                 if (i > MaxChainedChanges)
                 {
                     throw new InvalidOperationException($"States changed more than {MaxChainedChanges} times in a row from Enter, Exit or StateChanged.");
                 }
 
+                var state = _pending;
+                var isStop = _isStopPending;
+                _pending = null;
+                _isStopPending = false;
+
                 if (isStop)
                 {
                     _current?.Exit(Context);
                     _current = null;
-                }
-                else
-                {
-                    var previous = _current;
-                    previous?.Exit(Context);
-                    _current = state;
-                    state!.Enter(Context);
-                    StateChanged?.Invoke(new StateChangedEvent<TContext>(previous, state));
+                    continue;
                 }
 
-                if (_pending == null && !_isStopPending)
-                {
-                    return;
-                }
-
-                state = _pending;
-                isStop = _isStopPending;
-                _pending = null;
-                _isStopPending = false;
+                var previous = _current;
+                previous?.Exit(Context);
+                _current = state;
+                state!.Enter(Context);
+                StateChanged?.Invoke(new StateChangedEvent<TContext>(previous, state));
             }
         }
         finally
