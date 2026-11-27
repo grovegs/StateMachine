@@ -74,15 +74,15 @@ public sealed class StateMachine<TContext> : IStateMachine<TContext>
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        QueueChange(state, false);
+        SetPendingChange(state, false);
     }
 
     public void Stop()
     {
-        QueueChange(null, true);
+        SetPendingChange(null, true);
     }
 
-    private void QueueChange(IState<TContext>? state, bool isStop)
+    private void SetPendingChange(IState<TContext>? state, bool isStop)
     {
         _pending = state;
         _isStopPending = isStop;
@@ -92,10 +92,10 @@ public sealed class StateMachine<TContext> : IStateMachine<TContext>
             return;
         }
 
-        ApplyQueuedChanges();
+        ApplyPendingChange();
     }
 
-    private void ApplyQueuedChanges()
+    private void ApplyPendingChange()
     {
         _isChanging = true;
 
