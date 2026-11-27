@@ -42,6 +42,8 @@ machine.Stop();
 
 `Tick` checks the any-state transitions first, then the transitions of the current state, in the order they were added. It follows at most eight transitions in one tick, then ticks the current state. `ChangeState` switches without a condition, and `Stop` exits the current state. A `ChangeState` or `Stop` called from `Enter`, `Exit` or a `StateChanged` handler waits until the change or stop in progress has finished, and the last such call wins, so `StateChanged` always reports changes in order. A `Stop` requested while a state is being entered lets that state finish entering and then exits it. More than 64 such changes in a row throw `InvalidOperationException`. Do not call `Tick` from a state or a handler.
 
+`ChangeState` to the current state exits and enters it again, while transitions never target the current state. `Start` on a running machine exits the current state and enters the new one. If `Enter`, `Exit` or a `StateChanged` handler throws, the exception reaches the caller and changes queued from callbacks are dropped: a state whose `Enter` threw is still `Current`, so the next change calls its `Exit`, and a state whose `Exit` threw stays `Current`.
+
 ## Unity
 
 ### Installation
